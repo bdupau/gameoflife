@@ -2,9 +2,15 @@
 	<head>
 		<meta charset="utf-8"/>
 		<style>
+			table {
+				border-spacing: 0px;
+			}
 			td {
 				width: 5px;
 				height: 5px;
+				border: 0px;
+				padding: 0px;
+				border-spacing: 0px;
 			}
 			td.dead {
 				background-color: rgb(200,200,200);
@@ -17,79 +23,120 @@
 	<body>
 		<table id="t">
 		</table>
+		<select id="dropdown" onchange="dropdown()">
+			<option disabled selected value> -- select an option -- </option>
+			<option value="clear">Clear</option>
+			<option value="glider">Glider</option>
+			<option value="line">Line</option>
+		</select>
 		<button onClick="javascript:go();">
 			step
 		</button>
 		<button onClick="javascript:stop();">
 			stop
 		</button>
-		play: slow
+		<button onClick="javascript:play();">
+			play
+		</button>
 		<input type="range" min=10 max=500 step=10 name="slider" onchange="speed = 510-this.value; javascript:stop();javascript:play();">
-		fast
+		
 		<script>
 			var size = 100;
 			var speed = 250;
+			var draw = false;
+			var playiv;
+			var grid;
+			table = document.getElementById("t");
 
-			function toggle(matrix,rij,kol) {
-				matrix[rij][kol] = 1 - matrix[rij][kol]
+			function toggle(rij,kol) {
+				// Zet een cel aan of uit
+				grid[rij][kol] = 1 - grid[rij][kol];
 			}
 
-			function ncount(matrix,rij,kol) {
-				//tel het aantal levende buren
+			function ncount(rij,kol) {
+				// Telt het aantal levende buren van een cel
 				result = 0;
 				for (var i = Math.max(0, rij-1); i < Math.min(size, rij+2); i++) {
 					for (var j = Math.max(0, kol-1); j < Math.min(size, kol+2); j++) {
-						result += matrix[i][j];
+						result += grid[i][j];
 					}
 				}
-				return result - matrix[rij][kol];
+				return result - grid[rij][kol];
 			}
 
-			function life(old) {
-				// pas de life regels toe op een matrix
-				// geeft een nieuwe matrix terug
+			function life() {
+				// Past de life regels toe op de grid
+				// Geeft een nieuwe grid terug
 				var result = new Array(size);
 				for (var i = 0; i < size; i++) {
 					result[i] = new Array(size);
 					for (var j = 0; j < size; j++) {
 						result[i][j] = 0;
-						var count = ncount(old,i,j);
-						if (old[i][j] == 1 && (count == 2 || count == 3)) {result[i][j] = 1; }		
-						if (old[i][j] == 0 && count == 3) {result[i][j] = 1; }
+						var count = ncount(i,j);
+						if (grid[i][j] == 1 && (count == 2 || count == 3)) {result[i][j] = 1; }		
+						if (grid[i][j] == 0 && count == 3) {result[i][j] = 1; }
 					}
 				}
 				return result;
 			}
 
-			var n = new Array(size);
-			for (var i = 0; i < size; i++) {
-				n[i] = new Array(size);
-				for (var j = 0; j < size; j++) {
-					n[i][j] = 0;
+			function emptygrid() {
+				// Maakt een leeg grid
+				grid = new Array(size);
+				for (var i = 0; i < size; i++) {
+					grid[i] = new Array(size);
+					for (var j = 0; j < size; j++) {
+						grid[i][j] = 0;
+					}
 				}
 			}
-
-			toggle(n,4,5); // maak een 'glider' patroon
-			toggle(n,5,6);
-			toggle(n,6,4);
-			toggle(n,6,5);
-			toggle(n,6,6);
-			for (var i = 45; i < 55; i++) { //maak een streep
-				toggle(n,50,i);
+			
+			function glider() {
+				// Maakt een grid met een glider
+				emptygrid();
+				var half = Math.round(size/2);
+				toggle(half-1, half);
+				toggle(half, half+1);
+				toggle(half+1, half-1);
+				toggle(half+1, half);
+				toggle(half+1, half+1);
 			}
-
+			
+			function line() {
+				// Maakt een grid met een streep
+				emptygrid();
+				var half = Math.round(size/2);
+				for (var i = half-5; i < half+5; i++) {
+					toggle(half, i);
+				}
+			}
+			
+			function dropdown() {
+				// Maakt grid volgens keuze gebruiker
+				choice = document.getElementById("dropdown").value;
+				switch(choice) {
+					case 'glider':
+						glider();
+						break;
+					case 'line':
+						line();
+						break;
+					default:
+						emptygrid();
+				}
+				t();
+			}
+			
 			function go() {
-				n = life(n);
-				t(n);
+				grid = life();
+				t();
 			}
-
-			table = document.getElementById("t");
-
+			
 			function toggleCell(cell) {
 				a = JSON.parse(cell.id);
 				i = a[0];
 				j = a[1];
-				if (n[i][j] == 0) { n[i][j] = 1; cell.className = "alive"; } else { n[i][j] = 0; cell.className = "dead";}
+				if (grid[i][j] == 0) { grid[i][j] = 1; cell.className = "alive"; } else { grid[i][j] = 0; cell.className = "dead";}
 			}
 
 			for (var i = 0; i < size; i++) {
@@ -99,15 +146,17 @@
 					cell.id = "["+i+","+j+"]";
 					cell.innerHTML = " ";
 					cell.className = "dead";
-					cell.addEventListener("click", function(){toggleCell(this);});
+					cell.addEventListener("mousedown", function(){draw = true; toggleCell(this)});
+					cell.addEventListener("mouseup", function(){draw = false;});
+					cell.addEventListener("mouseover", function(){if (draw) toggleCell(this);});
 				}
 			}
 
-			function t(matrix) {
+			function t() {
 				for (var i = 0; i < size; i++) {
 					for (var j = 0; j < size; j++) {
 						cell = document.getElementById("["+i+","+j+"]");
-						if (matrix[i][j] == 1) {
+						if (grid[i][j] == 1) {
 							cell.className = "alive";
 						} else {
 							cell.className = "dead";
@@ -116,9 +165,6 @@
 				}
 			}
 
-			t(n);
-			var playiv;
-
 			function play(){
 				playiv = setInterval(go, speed);
 			}
@@ -126,6 +172,9 @@
 			function stop(){
 				clearInterval(playiv);
 			}
+			
+			glider();
+			t();
 		</script>
 	</body>
 </html>
